@@ -1879,7 +1879,7 @@
             { topic: '7.4', type: 'multiple_choice', stem: 'For $\\frac{dy}{dx} = y - 2$, equilibrium at:', choices: ['$y = 0$', '$y = 2$', '$y = -2$', 'No equilibrium'], correct: 1, explanation: '$y - 2 = 0$ when $y = 2$.' },
             { topic: '7.4', type: 'multiple_choice', stem: 'If slopes point up for $y > 3$ and down for $y < 3$:', choices: ['$y = 3$ is stable', '$y = 3$ is unstable', 'Solutions approach $y = 3$', 'Solutions flee $y = 3$'], correct: 3, explanation: 'Solutions move away: unstable.' },
             { topic: '7.4', type: 'multiple_choice', stem: 'Long-term behavior read from slope field:', choices: ['Exact final value', 'General trend', 'Initial condition', 'Derivative value'], correct: 1, explanation: 'Shows where solutions tend.' },
-            { topic: '7.4', type: 'multiple_choice', stem: 'For $\\frac{dy}{dx} = -y$, as $t \\to \\infty$:', choices: ['$y \\to \\infty$', '$y \\to 0$', '$y \\to -\\infty$', '$y$ oscillates'], correct: 1, explanation: 'Exponential decay toward 0.' },
+            { topic: '7.4', type: 'multiple_choice', stem: 'For $\\frac{dy}{dx} = -y$, as $x \\to \\infty$:', choices: ['$y \\to \\infty$', '$y \\to 0$', '$y \\to -\\infty$', '$y$ oscillates'], correct: 1, explanation: 'Solution is $y = Ce^{-x}$, which decays toward 0 as $x \\to \\infty$.' },
             { topic: '7.4', type: 'multiple_choice', stem: 'Isocline is a curve where:', choices: ['$y = $ constant', 'Slope is constant', '$x = $ constant', 'Solution passes'], correct: 1, explanation: 'Iso-cline = same slope.' },
 
             // Topic 7.6: Separation of Variables
