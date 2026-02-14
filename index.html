@@ -46,6 +46,9 @@
         <div id="map-screen" class="screen">
             <div class="map-header">
                 <h2>The Hill</h2>
+                <div class="points-display">
+                    <span id="total-points">0</span> pts
+                </div>
                 <div class="rune-counter">
                     <span id="runes-collected">0</span>/8 Runes Collected
                 </div>
@@ -100,7 +103,10 @@
                     <div class="rune-indicator"></div>
                 </div>
             </div>
-            <button id="open-portal-btn" class="menu-btn hidden">Claim Victory</button>
+            <div class="map-footer">
+                <button id="view-leaderboard-btn" class="menu-btn secondary">Leaderboard</button>
+                <button id="open-portal-btn" class="menu-btn hidden">Claim Victory</button>
+            </div>
         </div>
 
         <!-- Region Screen -->
@@ -137,6 +143,7 @@
                     <span>Streak: </span>
                     <div id="streak-dots" class="streak-container"></div>
                 </div>
+                <div class="points-earned" id="points-earned-display"></div>
             </div>
             <div id="puzzle-container" class="puzzle-body">
                 <div id="puzzle-stem" class="puzzle-question"></div>
@@ -172,9 +179,36 @@
                 <p class="victory-text">You have mastered the eight mathematical arts of The Hill. Your dedication and wisdom have earned you the title of Calculus Champion.</p>
                 <p class="completion-stats">
                     <span id="total-problems-solved">0</span> problems solved<br>
-                    <span id="total-topics-mastered">0</span> topics mastered
+                    <span id="total-topics-mastered">0</span> topics mastered<br>
+                    <span id="victory-total-points">0</span> total points
                 </p>
-                <button id="credits-btn" class="menu-btn">View Journey</button>
+                <button id="submit-score-btn" class="menu-btn">Submit to Leaderboard</button>
+                <button id="credits-btn" class="menu-btn secondary">View Journey</button>
+            </div>
+        </div>
+
+        <!-- Leaderboard Screen -->
+        <div id="leaderboard-screen" class="screen">
+            <div class="leaderboard-header">
+                <button id="back-from-leaderboard" class="nav-btn">← Back</button>
+                <h2>The Hill Leaderboard</h2>
+            </div>
+            <div id="leaderboard-list" class="leaderboard-container">
+                <div class="leaderboard-loading">Loading scores...</div>
+            </div>
+        </div>
+
+        <!-- Name Entry Modal -->
+        <div id="name-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Enter Your Name</h3>
+                <p class="modal-subtitle">Your name will appear on the school leaderboard</p>
+                <input type="text" id="player-name-input" maxlength="15" placeholder="Your name">
+                <p id="name-error" class="error-text hidden"></p>
+                <div class="modal-buttons">
+                    <button id="cancel-name-btn" class="menu-btn secondary">Cancel</button>
+                    <button id="submit-name-btn" class="menu-btn">Submit Score</button>
+                </div>
             </div>
         </div>
     </div>
@@ -184,6 +218,10 @@
     <audio id="sfx-correct"></audio>
     <audio id="sfx-incorrect"></audio>
     <audio id="sfx-rune"></audio>
+
+    <!-- Firebase SDK for Leaderboard -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
 
     <!-- Game scripts -->
     <script src="js/bundle.js"></script>

@@ -359,6 +359,7 @@
                     totalProblemsAttempted: 0,
                     totalProblemsCorrect: 0,
                     totalTopicsMastered: 0,
+                    totalPoints: 0,
                     playTime: 0
                 },
                 hasSeenIntro: false,
@@ -442,6 +443,7 @@
         function recordAnswer(topicId, isCorrect) {
             const progress = getTopicProgress(topicId);
             const wasMastered = progress.mastered;
+            let pointsEarned = 0;
 
             progress.attempts++;
             gameState.stats.totalProblemsAttempted++;
@@ -451,10 +453,17 @@
                 progress.correctAnswers++;
                 gameState.stats.totalProblemsCorrect++;
 
+                // Calculate points: 100 base + 25 per streak level
+                pointsEarned = 100 + (progress.streak * 25);
+
                 if (progress.streak >= MASTERY_THRESHOLD && !progress.mastered) {
                     progress.mastered = true;
                     gameState.stats.totalTopicsMastered++;
+                    // Mastery bonus
+                    pointsEarned += 1000;
                 }
+
+                gameState.stats.totalPoints += pointsEarned;
             } else {
                 progress.streak = 0;
             }
@@ -465,7 +474,8 @@
                 correct: isCorrect,
                 streak: progress.streak,
                 mastered: progress.mastered,
-                justMastered: progress.mastered && !wasMastered
+                justMastered: progress.mastered && !wasMastered,
+                pointsEarned: pointsEarned
             };
         }
 
@@ -490,6 +500,8 @@
         function collectRune(regionId) {
             if (!gameState.runes[regionId]) {
                 gameState.runes[regionId] = true;
+                // Award 2500 points for collecting a rune
+                gameState.stats.totalPoints += 2500;
                 saveToStorage();
                 return true;
             }
@@ -576,6 +588,203 @@
             markGameCompleted: markGameCompleted,
             getStats: getStats,
             isRegionAvailable: isRegionAvailable
+        };
+    })();
+
+    // ============================================
+    // NAME FILTER MODULE
+    // ============================================
+    const NameFilter = (function() {
+        // Comprehensive blocklist for inappropriate content
+        const blocklist = [
+            // Common profanity
+            'fuck', 'shit', 'ass', 'bitch', 'damn', 'crap', 'hell',
+            'dick', 'cock', 'pussy', 'cunt', 'fag', 'slut', 'whore',
+            // Slurs and hate speech
+            'nigger', 'nigga', 'retard', 'spic', 'chink', 'kike',
+            'dyke', 'tranny', 'faggot',
+            // Sexual terms
+            'porn', 'sex', 'nude', 'naked', 'penis', 'vagina',
+            'boob', 'tits', 'anal', 'oral', 'dildo', 'cum',
+            // Drugs
+            'weed', 'cocaine', 'heroin', 'meth',
+            // Violence
+            'kill', 'murder', 'rape', 'nazi', 'hitler',
+            // School-specific concerns
+            'bomb', 'gun', 'shoot'
+        ];
+
+        // Leetspeak mappings for bypass detection
+        const leetMap = {
+            '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's',
+            '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i',
+            '(': 'c', ')': 'o', '|': 'i', '+': 't'
+        };
+
+        function normalize(str) {
+            let normalized = str.toLowerCase();
+            // Replace leetspeak characters
+            for (const [leet, char] of Object.entries(leetMap)) {
+                normalized = normalized.split(leet).join(char);
+            }
+            // Remove non-alphanumeric characters
+            normalized = normalized.replace(/[^a-z]/g, '');
+            return normalized;
+        }
+
+        function containsBadWord(name) {
+            const normalized = normalize(name);
+            return blocklist.some(word => normalized.includes(word));
+        }
+
+        function isValid(name) {
+            // Length check
+            if (!name || name.length < 2 || name.length > 15) return false;
+            // Character check (alphanumeric, spaces, basic punctuation)
+            if (!/^[a-zA-Z0-9 ._-]+$/.test(name)) return false;
+            // Profanity check
+            if (containsBadWord(name)) return false;
+            return true;
+        }
+
+        function sanitize(name) {
+            return name.trim().substring(0, 15);
+        }
+
+        function getErrorMessage(name) {
+            if (!name || name.length < 2) {
+                return 'Name must be at least 2 characters';
+            }
+            if (name.length > 15) {
+                return 'Name must be 15 characters or less';
+            }
+            if (!/^[a-zA-Z0-9 ._-]+$/.test(name)) {
+                return 'Only letters, numbers, spaces, and . _ - allowed';
+            }
+            if (containsBadWord(name)) {
+                return 'Please choose an appropriate name';
+            }
+            return '';
+        }
+
+        return {
+            isValid: isValid,
+            sanitize: sanitize,
+            containsBadWord: containsBadWord,
+            getErrorMessage: getErrorMessage
+        };
+    })();
+
+    // ============================================
+    // LEADERBOARD MODULE
+    // ============================================
+    const Leaderboard = (function() {
+        let db = null;
+        let playerId = null;
+        let isInitialized = false;
+
+        function generatePlayerId() {
+            return 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function init(firebaseConfig) {
+            if (isInitialized) return true;
+
+            try {
+                // Check if Firebase is available
+                if (typeof firebase === 'undefined') {
+                    console.warn('Firebase SDK not loaded. Leaderboard disabled.');
+                    return false;
+                }
+
+                // Check if already initialized
+                if (firebase.apps.length === 0) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+
+                db = firebase.database();
+                playerId = localStorage.getItem('thehill_player_id');
+                if (!playerId) {
+                    playerId = generatePlayerId();
+                    localStorage.setItem('thehill_player_id', playerId);
+                }
+                isInitialized = true;
+                return true;
+            } catch (e) {
+                console.error('Failed to initialize Firebase:', e);
+                return false;
+            }
+        }
+
+        function isReady() {
+            return isInitialized && db !== null;
+        }
+
+        function getPlayerId() {
+            return playerId;
+        }
+
+        function submitScore(name, points) {
+            if (!isReady()) {
+                return Promise.reject(new Error('Leaderboard not initialized'));
+            }
+
+            if (!NameFilter.isValid(name)) {
+                return Promise.reject(new Error('Invalid name'));
+            }
+
+            const sanitizedName = NameFilter.sanitize(name);
+
+            return db.ref('leaderboard/' + playerId).set({
+                name: sanitizedName,
+                points: points,
+                timestamp: Date.now()
+            });
+        }
+
+        function getTopScores(limit) {
+            limit = limit || 20;
+
+            if (!isReady()) {
+                return Promise.reject(new Error('Leaderboard not initialized'));
+            }
+
+            return db.ref('leaderboard')
+                .orderByChild('points')
+                .limitToLast(limit)
+                .once('value')
+                .then(function(snapshot) {
+                    const scores = [];
+                    snapshot.forEach(function(child) {
+                        scores.push({
+                            id: child.key,
+                            name: child.val().name,
+                            points: child.val().points,
+                            timestamp: child.val().timestamp
+                        });
+                    });
+                    // Reverse to get highest first
+                    return scores.reverse();
+                });
+        }
+
+        function hasSubmitted() {
+            if (!isReady()) return Promise.resolve(false);
+
+            return db.ref('leaderboard/' + playerId)
+                .once('value')
+                .then(function(snapshot) {
+                    return snapshot.exists();
+                });
+        }
+
+        return {
+            init: init,
+            isReady: isReady,
+            getPlayerId: getPlayerId,
+            submitScore: submitScore,
+            getTopScores: getTopScores,
+            hasSubmitted: hasSubmitted
         };
     })();
 
@@ -2105,6 +2314,19 @@
 
             document.getElementById('claim-rune-btn').addEventListener('click', claimRune);
             document.getElementById('credits-btn').addEventListener('click', function() { showScreen('title-screen'); });
+
+            // Leaderboard event listeners
+            document.getElementById('view-leaderboard-btn').addEventListener('click', showLeaderboard);
+            document.getElementById('back-from-leaderboard').addEventListener('click', function() { showScreen('map-screen'); updateMapState(); });
+            document.getElementById('submit-score-btn').addEventListener('click', openNameModal);
+            document.getElementById('submit-name-btn').addEventListener('click', submitScoreToLeaderboard);
+            document.getElementById('cancel-name-btn').addEventListener('click', closeNameModal);
+
+            // Name input validation
+            document.getElementById('player-name-input').addEventListener('input', validateNameInput);
+            document.getElementById('player-name-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') submitScoreToLeaderboard();
+            });
         }
 
         function updateContinueButton() {
@@ -2224,6 +2446,10 @@
         function updateMapState() {
             document.getElementById('runes-collected').textContent = Game.countRunes();
 
+            // Update points display
+            const stats = Game.getStats();
+            document.getElementById('total-points').textContent = formatPoints(stats.totalPoints);
+
             document.querySelectorAll('.map-region').forEach(el => {
                 const regionId = el.dataset.region;
 
@@ -2241,6 +2467,15 @@
 
             const portalBtn = document.getElementById('open-portal-btn');
             portalBtn.classList.toggle('hidden', !Game.hasAllRunes());
+        }
+
+        function formatPoints(points) {
+            if (points >= 1000000) {
+                return (points / 1000000).toFixed(1) + 'M';
+            } else if (points >= 1000) {
+                return (points / 1000).toFixed(1) + 'K';
+            }
+            return points.toString();
         }
 
         function enterRegion(regionId) {
@@ -2476,11 +2711,31 @@
                 feedbackResult.textContent = 'Not quite...';
             }
 
+            // Show points earned animation
+            if (isCorrect && result.pointsEarned > 0) {
+                showPointsEarned(result.pointsEarned);
+            }
+
             feedbackExplanation.innerHTML = currentPuzzle.explanation || '';
             feedbackArea.classList.remove('hidden');
 
             document.getElementById('next-puzzle-btn').textContent = result.justMastered ? 'Continue' : 'Next Problem';
             renderMath();
+        }
+
+        function showPointsEarned(points) {
+            const display = document.getElementById('points-earned-display');
+            display.textContent = '+' + points + ' pts';
+            display.classList.remove('animate');
+            // Trigger reflow to restart animation
+            void display.offsetWidth;
+            display.classList.add('animate');
+
+            // Clear after animation
+            setTimeout(function() {
+                display.textContent = '';
+                display.classList.remove('animate');
+            }, 600);
         }
 
         function nextPuzzle() {
@@ -2564,6 +2819,7 @@
             const stats = Game.getStats();
             document.getElementById('total-problems-solved').textContent = stats.totalProblemsCorrect;
             document.getElementById('total-topics-mastered').textContent = stats.totalTopicsMastered;
+            document.getElementById('victory-total-points').textContent = formatPoints(stats.totalPoints);
             showScreen('victory-screen');
         }
 
@@ -2577,6 +2833,148 @@
                 [arr[i], arr[j]] = [arr[j], arr[i]];
             }
             return arr;
+        }
+
+        // ============================================
+        // LEADERBOARD FUNCTIONS
+        // ============================================
+        function showLeaderboard() {
+            showScreen('leaderboard-screen');
+            loadLeaderboard();
+        }
+
+        function loadLeaderboard() {
+            const container = document.getElementById('leaderboard-list');
+            container.innerHTML = '<div class="leaderboard-loading">Loading scores...</div>';
+
+            if (!Leaderboard.isReady()) {
+                container.innerHTML = '<div class="leaderboard-empty">Leaderboard requires Firebase configuration.<br>See setup instructions.</div>';
+                return;
+            }
+
+            Leaderboard.getTopScores(20)
+                .then(function(scores) {
+                    renderLeaderboard(scores);
+                })
+                .catch(function(error) {
+                    console.error('Failed to load leaderboard:', error);
+                    container.innerHTML = '<div class="leaderboard-empty">Failed to load leaderboard.<br>Please try again later.</div>';
+                });
+        }
+
+        function renderLeaderboard(scores) {
+            const container = document.getElementById('leaderboard-list');
+            const currentPlayerId = Leaderboard.getPlayerId();
+
+            if (!scores || scores.length === 0) {
+                container.innerHTML = '<div class="leaderboard-empty">No scores yet.<br>Be the first to submit!</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+
+            scores.forEach(function(entry, index) {
+                const div = document.createElement('div');
+                div.className = 'leaderboard-entry';
+                if (entry.id === currentPlayerId) {
+                    div.classList.add('current-player');
+                }
+
+                div.innerHTML = '<div class="leaderboard-rank">' + (index + 1) + '</div>' +
+                    '<div class="leaderboard-name">' + escapeHtml(entry.name) + '</div>' +
+                    '<div class="leaderboard-points">' + formatPoints(entry.points) + '</div>';
+
+                container.appendChild(div);
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function openNameModal() {
+            const input = document.getElementById('player-name-input');
+            const error = document.getElementById('name-error');
+
+            input.value = '';
+            input.classList.remove('invalid');
+            error.classList.add('hidden');
+            error.textContent = '';
+
+            document.getElementById('name-modal').classList.remove('hidden');
+            input.focus();
+        }
+
+        function closeNameModal() {
+            document.getElementById('name-modal').classList.add('hidden');
+        }
+
+        function validateNameInput() {
+            const input = document.getElementById('player-name-input');
+            const error = document.getElementById('name-error');
+            const submitBtn = document.getElementById('submit-name-btn');
+            const name = input.value.trim();
+
+            if (name.length === 0) {
+                input.classList.remove('invalid');
+                error.classList.add('hidden');
+                submitBtn.disabled = false;
+                return;
+            }
+
+            const errorMsg = NameFilter.getErrorMessage(name);
+
+            if (errorMsg) {
+                input.classList.add('invalid');
+                error.textContent = errorMsg;
+                error.classList.remove('hidden');
+                submitBtn.disabled = true;
+            } else {
+                input.classList.remove('invalid');
+                error.classList.add('hidden');
+                submitBtn.disabled = false;
+            }
+        }
+
+        function submitScoreToLeaderboard() {
+            const input = document.getElementById('player-name-input');
+            const error = document.getElementById('name-error');
+            const submitBtn = document.getElementById('submit-name-btn');
+            const name = input.value.trim();
+
+            if (!NameFilter.isValid(name)) {
+                const errorMsg = NameFilter.getErrorMessage(name);
+                input.classList.add('invalid');
+                error.textContent = errorMsg || 'Please enter a valid name';
+                error.classList.remove('hidden');
+                return;
+            }
+
+            if (!Leaderboard.isReady()) {
+                error.textContent = 'Leaderboard is not configured. See setup instructions.';
+                error.classList.remove('hidden');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            const stats = Game.getStats();
+
+            Leaderboard.submitScore(name, stats.totalPoints)
+                .then(function() {
+                    closeNameModal();
+                    showLeaderboard();
+                })
+                .catch(function(err) {
+                    console.error('Failed to submit score:', err);
+                    error.textContent = 'Failed to submit. Please try again.';
+                    error.classList.remove('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Score';
+                });
         }
 
         // ============================================
@@ -3065,12 +3463,38 @@
     })();
 
     // ============================================
+    // FIREBASE CONFIGURATION
+    // ============================================
+    const FIREBASE_CONFIG = {
+        apiKey: "AIzaSyB-LVIUaDV12XX4nbWEdz6LxDSeawBzKU8",
+        authDomain: "the-hill-leaderboard.firebaseapp.com",
+        databaseURL: "https://the-hill-leaderboard-default-rtdb.firebaseio.com",
+        projectId: "the-hill-leaderboard",
+        storageBucket: "the-hill-leaderboard.firebasestorage.app",
+        messagingSenderId: "558532371214",
+        appId: "1:558532371214:web:53f8f881138cc5d75fad5f"
+    };
+
+    // ============================================
     // INITIALIZATION
     // ============================================
     document.addEventListener('DOMContentLoaded', function() {
         console.log('The Hill - MBA AP Calculus AB - Initializing...');
         Particles.init();
         Game.initGame();
+
+        // Initialize Firebase leaderboard if configured
+        if (FIREBASE_CONFIG.apiKey) {
+            var leaderboardReady = Leaderboard.init(FIREBASE_CONFIG);
+            if (leaderboardReady) {
+                console.log('Leaderboard initialized');
+            } else {
+                console.warn('Leaderboard initialization failed');
+            }
+        } else {
+            console.log('Leaderboard disabled - Firebase not configured');
+        }
+
         UI.init();
         UI.showScreen('title-screen');
 
@@ -3089,6 +3513,8 @@
         Puzzles: Puzzles,
         Particles: Particles,
         UI: UI,
+        Leaderboard: Leaderboard,
+        NameFilter: NameFilter,
         resetGame: function() {
             Game.clearSave();
             location.reload();
